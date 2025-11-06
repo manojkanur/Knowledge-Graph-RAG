@@ -1,0 +1,33 @@
+# Core Dependencies
+langchain==0.1.16
+langchain-openai==0.1.1
+langchain-community==0.0.38
+
+# OpenAI
+openai==1.14.3
+
+# Knowledge Graph
+graphiti-core==0.3.0
+neo4j==5.18.0
+
+# Vector Store
+faiss-cpu==1.8.0
+chromadb==0.4.24
+
+# Utilities
+python-dotenv==1.0.1
+numpy==1.26.4
+pandas==2.2.1
+
+# Visualization
+matplotlib==3.8.3
+pyvis==0.3.2
+networkx==3.2.1
+
+# Progress and CLI
+tqdm==4.66.2
+rich==13.7.1
+
+# Optional: Jupyter for notebook demo
+jupyter==1.0.0
+ipykernel==6.29.3

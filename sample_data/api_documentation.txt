@@ -1,0 +1,190 @@
+# CloudStore API Documentation
+
+## Overview
+CloudStore API is a RESTful service for managing cloud storage operations. The API supports file management, user authentication, sharing capabilities, and real-time notifications.
+
+## Authentication
+
+### OAuth 2.0 Authentication
+CloudStore uses OAuth 2.0 for secure authentication. The authentication system supports multiple grant types including authorization code, client credentials, and refresh tokens.
+
+#### Authentication Endpoints
+- POST /api/v1/auth/token - Obtain access token
+- POST /api/v1/auth/refresh - Refresh expired tokens
+- DELETE /api/v1/auth/revoke - Revoke access tokens
+
+The access tokens expire after 3600 seconds (1 hour). Refresh tokens are valid for 30 days. All authenticated endpoints require the Authorization header with format: "Bearer {access_token}".
+
+### API Keys
+For server-to-server communication, API keys can be used instead of OAuth tokens. API keys are managed through the developer portal and can be scoped to specific operations.
+
+## User Management
+
+### User Entity
+The User entity represents a registered CloudStore user. Each user has a unique user_id (UUID format), email address, display name, storage quota, and account creation timestamp.
+
+Users are created through the registration endpoint and can be managed by account administrators. The UserManager service handles all user-related operations including profile updates, quota management, and account deletion.
+
+### User Endpoints
+- POST /api/v1/users - Create new user account
+- GET /api/v1/users/{user_id} - Retrieve user profile
+- PUT /api/v1/users/{user_id} - Update user information
+- DELETE /api/v1/users/{user_id} - Delete user account
+- GET /api/v1/users/{user_id}/storage - Get storage usage statistics
+
+The UserManager service interacts with the AuthenticationService to verify user permissions and with the StorageManager to track quota usage.
+
+## File Management
+
+### File Entity
+Files in CloudStore are represented by the File entity, which includes file_id (UUID), filename, file_size (bytes), mime_type, owner_id (references User), parent_folder_id, upload_timestamp, and last_modified_timestamp.
+
+### File Operations
+The FileManager service provides comprehensive file management capabilities:
+
+#### Upload Operations
+- POST /api/v1/files/upload - Upload new file
+- POST /api/v1/files/multipart/initiate - Start multipart upload for large files
+- POST /api/v1/files/multipart/complete - Complete multipart upload
+
+File uploads are processed by the UploadHandler which validates file types, checks quota limits, scans for malware using the SecurityScanner, and stores metadata in the database. Large files over 100MB must use multipart upload.
+
+#### Download Operations
+- GET /api/v1/files/{file_id}/download - Download file content
+- GET /api/v1/files/{file_id}/stream - Stream file for media playback
+
+The DownloadHandler verifies user permissions through the PermissionManager before serving files. Streaming is optimized for audio and video content.
+
+#### File Metadata
+- GET /api/v1/files/{file_id} - Get file metadata
+- PUT /api/v1/files/{file_id}/metadata - Update file metadata
+- DELETE /api/v1/files/{file_id} - Delete file
+
+File deletion is handled by the DeletionService which moves files to trash for 30 days before permanent deletion. The TrashManager allows file recovery during this period.
+
+### Folder Structure
+Folders organize files hierarchically. The Folder entity contains folder_id, name, parent_folder_id, and owner_id. The FolderManager service maintains the folder tree structure and handles operations like move, copy, and recursive deletion.
+
+- POST /api/v1/folders - Create new folder
+- GET /api/v1/folders/{folder_id}/contents - List folder contents
+- PUT /api/v1/folders/{folder_id}/move - Move folder to different parent
+- DELETE /api/v1/folders/{folder_id} - Delete folder and contents
+
+## Sharing and Permissions
+
+### Share Links
+The SharingService enables creating share links for files and folders. Share entities include share_id, resource_id (file or folder), access_level (view/edit), expiration_date, and password protection option.
+
+- POST /api/v1/shares - Create share link
+- GET /api/v1/shares/{share_id} - Access shared resource
+- DELETE /api/v1/shares/{share_id} - Revoke share link
+
+Share links can be configured with view-only or edit permissions. The PermissionManager evaluates share permissions in combination with user permissions.
+
+### Collaboration
+The CollaborationService manages multi-user access to files and folders. Collaborators can be added with specific roles: owner, editor, commenter, or viewer.
+
+- POST /api/v1/files/{file_id}/collaborators - Add collaborator
+- GET /api/v1/files/{file_id}/collaborators - List collaborators
+- PUT /api/v1/files/{file_id}/collaborators/{user_id} - Update collaborator role
+- DELETE /api/v1/files/{file_id}/collaborators/{user_id} - Remove collaborator
+
+The CollaborationService sends notifications through the NotificationService when users are added or removed.
+
+## Search and Discovery
+
+### Search Service
+The SearchService provides full-text search across file names, content, and metadata. Search uses the SearchIndex which is updated asynchronously by the IndexingService.
+
+- GET /api/v1/search?q={query} - Search files and folders
+- GET /api/v1/search/recent - Get recently accessed files
+- GET /api/v1/search/shared - Get files shared with user
+
+Search results are filtered by the PermissionManager to ensure users only see files they have access to. The RankingAlgorithm sorts results by relevance score combining text matching and user activity patterns.
+
+### Metadata Extraction
+The MetadataExtractor service automatically extracts metadata from uploaded files. For images, it extracts EXIF data including camera model, location, and timestamp. For documents, it extracts author, creation date, and content summary.
+
+## Notifications and Webhooks
+
+### Notification System
+The NotificationService delivers real-time notifications to users about file activities, sharing events, and collaboration updates. Notifications are sent via WebSocket connections and email.
+
+- GET /api/v1/notifications - List user notifications
+- PUT /api/v1/notifications/{notification_id}/read - Mark notification as read
+- DELETE /api/v1/notifications/{notification_id} - Dismiss notification
+
+The NotificationService is triggered by events from FileManager, SharingService, and CollaborationService.
+
+### Webhooks
+Developers can register webhooks to receive HTTP callbacks for specific events:
+
+- POST /api/v1/webhooks - Register webhook endpoint
+- GET /api/v1/webhooks - List registered webhooks
+- DELETE /api/v1/webhooks/{webhook_id} - Unregister webhook
+
+Supported events include: file.uploaded, file.deleted, share.created, collaborator.added. The WebhookDispatcher sends POST requests to registered URLs with event payloads.
+
+## Storage and Quota
+
+### Quota Management
+The QuotaManager tracks storage usage per user and enforces quota limits. Default quota is 15GB for free accounts and 1TB for premium accounts. The QuotaManager is called by the UploadHandler before accepting file uploads.
+
+- GET /api/v1/users/{user_id}/quota - Get quota information
+- PUT /api/v1/users/{user_id}/quota - Update quota limit (admin only)
+
+The QuotaManager aggregates file sizes from the StorageManager and caches results for performance.
+
+### Storage Backend
+Files are stored in the ObjectStorage system which supports multiple backend providers (AWS S3, Google Cloud Storage, Azure Blob Storage). The StorageAdapter abstracts provider-specific APIs.
+
+The ChunkingService splits large files into chunks for efficient storage and retrieval. The VersioningService maintains file versions when enabled, storing deltas to minimize storage overhead.
+
+## Security
+
+### Security Scanner
+The SecurityScanner examines uploaded files for malware, viruses, and malicious content. Integration with ThreatDetectionService provides real-time threat intelligence updates.
+
+### Encryption
+Files are encrypted at rest using AES-256 encryption. The EncryptionService manages encryption keys through the KeyManagementService. Client-side encryption is available for premium users.
+
+### Audit Logging
+The AuditLogger records all API operations including user actions, permission changes, and admin operations. Audit logs are immutable and stored separately for compliance requirements.
+
+- GET /api/v1/audit/logs - Query audit logs (admin only)
+
+## Rate Limiting
+
+The RateLimiter enforces API usage limits to prevent abuse. Default limits are 1000 requests per hour per user. Rate limit information is included in response headers:
+- X-RateLimit-Limit: Maximum requests allowed
+- X-RateLimit-Remaining: Requests remaining in window
+- X-RateLimit-Reset: Timestamp when limit resets
+
+## Error Handling
+
+API errors follow standard HTTP status codes. Error responses include:
+- status: HTTP status code
+- error: Error type identifier
+- message: Human-readable error description
+- request_id: Unique identifier for support
+
+Common error codes:
+- 400 Bad Request - Invalid request parameters
+- 401 Unauthorized - Missing or invalid authentication
+- 403 Forbidden - Insufficient permissions
+- 404 Not Found - Resource doesn't exist
+- 429 Too Many Requests - Rate limit exceeded
+- 500 Internal Server Error - Server-side error
+
+## Dependencies and Services
+
+The CloudStore API architecture consists of interconnected services:
+
+- AuthenticationService depends on UserManager and TokenService
+- FileManager depends on PermissionManager, QuotaManager, and StorageManager
+- UploadHandler depends on FileManager, SecurityScanner, and MetadataExtractor
+- SharingService depends on PermissionManager and NotificationService
+- SearchService depends on IndexingService, PermissionManager, and RankingAlgorithm
+- NotificationService depends on WebSocketManager and EmailService
+
+All services communicate through the MessageBroker for asynchronous event processing.
