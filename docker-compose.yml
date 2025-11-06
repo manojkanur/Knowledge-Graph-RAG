@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   neo4j:
-    image: neo4j:5.18.0
+    image: neo4j:5.23.0
     container_name: neo4j-kg-demo
     ports:
       - "7474:7474"  # HTTP - Neo4j Browser

@@ -44,12 +44,22 @@ class KnowledgeGraphRAG:
             auth=(neo4j_user, neo4j_password)
         )
 
-        # Initialize Graphiti
+        # Initialize Graphiti with new API (v0.3.6+)
+        from graphiti_core.llm_client import OpenAIClient
+        from graphiti_core.llm_client.config import LLMConfig
+
+        llm_config = LLMConfig(
+            api_key=openai_api_key,
+            model=model_name,
+            max_tokens=4096  # GPT-4 Turbo max completion tokens
+        )
+        llm_client = OpenAIClient(config=llm_config)
+
         self.graphiti = Graphiti(
-            neo4j_uri=neo4j_uri,
-            neo4j_user=neo4j_user,
-            neo4j_password=neo4j_password,
-            openai_api_key=openai_api_key
+            uri=neo4j_uri,
+            user=neo4j_user,
+            password=neo4j_password,
+            llm_client=llm_client
         )
 
         # Initialize LLM for response generation
@@ -87,8 +97,9 @@ class KnowledgeGraphRAG:
             await self.graphiti.add_episode(
                 name=f"{source}_chunk_{i}",
                 episode_body=doc,
-                source=EpisodeType.text,
-                reference_time=datetime.now()
+                source_description=f"Document chunk {i} from {source}",
+                reference_time=datetime.now(),
+                source=EpisodeType.text
             )
 
             if (i + 1) % 10 == 0:

@@ -83,7 +83,7 @@ async def initialize_systems():
 
     documents = rag_system.load_documents(str(doc_path))
     rag_system.build_index(documents)
-    console.print("[green]✓ Traditional RAG initialized[/green]\n")
+    console.print("[green][OK] Traditional RAG initialized[/green]\n")
 
     # Initialize Knowledge Graph RAG
     console.print("[yellow]2. Initializing Knowledge Graph RAG...[/yellow]")
@@ -94,6 +94,9 @@ async def initialize_systems():
         openai_api_key=openai_api_key,
         model_name=model_name
     )
+
+    # Build required Neo4j indexes and constraints
+    await kg_system.graphiti.build_indices_and_constraints()
 
     # Check if we should rebuild the graph
     stats = kg_system.get_graph_statistics()
@@ -112,13 +115,13 @@ async def initialize_systems():
         await kg_system.add_documents_to_graph(doc_texts, source="api_documentation")
 
         stats = kg_system.get_graph_statistics()
-        console.print(f"[green]✓ Knowledge Graph initialized[/green]")
+        console.print(f"[green][OK] Knowledge Graph initialized[/green]")
         console.print(f"  - Nodes: {stats['total_nodes']}")
         console.print(f"  - Relationships: {stats['total_relationships']}")
         console.print(f"  - Entities: {stats['num_entities']}")
         console.print(f"  - Episodes: {stats['num_episodes']}\n")
     else:
-        console.print(f"[green]✓ Using existing Knowledge Graph[/green]")
+        console.print(f"[green][OK] Using existing Knowledge Graph[/green]")
         console.print(f"  - Nodes: {stats['total_nodes']}")
         console.print(f"  - Relationships: {stats['total_relationships']}")
         console.print(f"  - Entities: {stats['num_entities']}")
@@ -164,7 +167,7 @@ async def run_full_comparison_suite(rag_system, kg_system):
     # Generate visualizations
     console.print("\n[yellow]Generating comparison visualizations...[/yellow]")
     plot_comparison_metrics(results, "comparison_metrics.png")
-    console.print("[green]✓ Metrics plot saved to: comparison_metrics.png[/green]")
+    console.print("[green][OK] Metrics plot saved to: comparison_metrics.png[/green]")
 
 
 def visualize_knowledge_graph(kg_system):
@@ -179,7 +182,7 @@ def visualize_knowledge_graph(kg_system):
         max_nodes=100
     )
 
-    console.print("[green]✓ Visualization saved to: knowledge_graph.html[/green]")
+    console.print("[green][OK] Visualization saved to: knowledge_graph.html[/green]")
     console.print("[yellow]Open this file in a web browser to explore the graph interactively[/yellow]")
 
 
